@@ -1,0 +1,59 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# ignore output folders
+BenchmarkDotNet.Artifacts/
+artifacts/
+bin/
+build/
+obj/
+packages/
+
+# ignore user-specific options/cache files
+project.lock.json
+_ReSharper.*
+TestResult.xml
+Thumbs.db
+*.csproj.user
+*.DotSettings.user
+.idea
+*.ncrunchproject
+*.ncrunchproject.user
+*.ncrunchsolution
+*.ncrunchsolution.user
+*.[Rr]e[Ss]harper.user
+*.sln.cache
+*.suo
+.vs/
+*.xproj.user
+.vscode/

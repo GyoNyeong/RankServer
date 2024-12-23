@@ -1,0 +1,3 @@
+﻿  main.cpp
+C:\Work\RankServer\RankServer\main.cpp(176,57): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
+  RankServer.vcxproj -> C:\Work\RankServer\x64\Debug\RankServer.exe
