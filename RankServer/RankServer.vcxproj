@@ -71,8 +71,8 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>C:\Work\RankServer\mysql-connector\include;$(IncludePath)</IncludePath>
-    <LibraryPath>C:\Work\RankServer\mysql-connector\lib64;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(SolutionDir)mysql-connector\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)mysql-connector\lib64;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
