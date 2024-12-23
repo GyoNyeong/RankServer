@@ -1,7 +1,7 @@
 #ifdef _DEBUG
-#pragma comment(lib, "C:/Work/RankServer/mysql-connector/lib64/debug/vs14/mysqlcppconn.lib")
+#pragma comment(lib, "../mysql-connector/lib64/debug/vs14/mysqlcppconn.lib")
 #else
-#pragma comment(lib, "C:/Work/RankServer/mysql-connector/lib64/mysqlcppconn.lib")
+#pragma comment(lib, "../mysql-connector/lib64/mysqlcppconn.lib")
 #endif
 
 #define _CRT_SECURE_NO_WARNINGS
