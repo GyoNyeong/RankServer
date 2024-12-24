@@ -133,7 +133,6 @@ int main()
 		
 		else if (JsonData.HasMember("action"))
 		{
-			cout << "Request Rank";
 			// 1. SQL 쿼리 실행 (상위 10명의 랭킹)
 			PreparedStatement = Connection->prepareStatement("SELECT PlayerName, Score FROM ranking ORDER BY Score DESC LIMIT 10");
 			ResultSet = PreparedStatement->executeQuery();
