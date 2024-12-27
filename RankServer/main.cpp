@@ -71,16 +71,17 @@ int main()
 
 	//Listen
 	listen(ServerSock, 5);
-	
-	//Create and Intialize ClientSocket
-	SOCKADDR_IN ClientSockAddr;
-	memset(&ClientSockAddr, 0, sizeof(ClientSockAddr));
-	int ClientSockSize = sizeof(ClientSockAddr);
-	SOCKET ClientSocket = accept(ServerSock, (SOCKADDR*)&ClientSockAddr, &ClientSockSize);
 
 	//Wait for recieve Data
 	while (true)
 	{
+
+		//Create and Intialize ClientSocket
+		SOCKADDR_IN ClientSockAddr;
+		memset(&ClientSockAddr, 0, sizeof(ClientSockAddr));
+		int ClientSockSize = sizeof(ClientSockAddr);
+		SOCKET ClientSocket = accept(ServerSock, (SOCKADDR*)&ClientSockAddr, &ClientSockSize);
+
 		char Buffer[1024] = { 0, };
 		int RecvByte = recv(ClientSocket, Buffer, sizeof(Buffer), 0);
 		if (RecvByte <= 0)
@@ -93,7 +94,7 @@ int main()
 			{
 				cout << "Recv Error: " << WSAGetLastError() << endl;
 			}
-			break; 
+			break;
 		}
 
 		// json data
@@ -130,7 +131,7 @@ int main()
 
 			delete PreparedStatement;
 		}
-		
+
 		else if (JsonData.HasMember("action"))
 		{
 			// 1. SQL 쿼리 실행 (상위 10명의 랭킹)
@@ -160,7 +161,6 @@ int main()
 			}
 
 			// 4. JSON에 status와 ranking 데이터 추가
-			//RankData.AddMember("status", "success", allocator);
 			RankData.AddMember("ranking", rankingArray, allocator);
 
 			// 5. JSON을 문자열로 변환
@@ -182,10 +182,10 @@ int main()
 			//allocator.Free(&RankData); 수동으로 해제하는 방식은 올바르나 rapidjson은 자동으로 이 과정이 이루어지기떄문에 현재의 줄은 불필요
 		}
 
+		closesocket(ClientSocket);
 	}
 
 	// CloseSocket
-	closesocket(ClientSocket);
 	closesocket(ServerSock);
 	WSACleanup();
 	delete Connection;
