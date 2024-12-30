@@ -23,6 +23,8 @@ using namespace rapidjson;
 
 #pragma comment(lib,"ws2_32")
 
+unsigned short Length;
+
 int main()
 {
 	//WinSoc Initiailze
@@ -55,7 +57,7 @@ int main()
 	SOCKADDR_IN	ServerAddr;
 	memset(&ServerAddr, 0, sizeof(ServerAddr));
 	ServerAddr.sin_family = AF_INET;
-	ServerAddr.sin_port = htons(3000);
+	ServerAddr.sin_port = htons(2000);
 	ServerAddr.sin_addr.s_addr = INADDR_ANY;
 
 	//bind
@@ -82,106 +84,115 @@ int main()
 		int ClientSockSize = sizeof(ClientSockAddr);
 		SOCKET ClientSocket = accept(ServerSock, (SOCKADDR*)&ClientSockAddr, &ClientSockSize);
 
-		char Buffer[1024] = { 0, };
-		int RecvByte = recv(ClientSocket, Buffer, sizeof(Buffer), 0);
-		if (RecvByte <= 0)
+		//u_short Length = 0;
+	
+		while (true)
 		{
-			if (RecvByte == 0)
+			int RecvByte = recv(ClientSocket, (char*)&Length, sizeof(Length), 0);
+			if (RecvByte <= 0)
 			{
-				cout << "Client disconnected." << endl;
+				if (RecvByte == 0)
+				{
+					cout << "Client disconnected." << endl;
+				}
+				else
+				{
+					cout << "Recv Error: " << WSAGetLastError() << endl;
+				}
+				break;
 			}
-			else
+
+			char Buffer[1024] = { 0, };
+			RecvByte = recv(ClientSocket, Buffer, ntohs(Length), 0);
+
+			// json data
+			Document JsonData; //rapidjosn
+			JsonData.Parse(Buffer); // data parse
+
+			if (JsonData.HasParseError())
 			{
-				cout << "Recv Error: " << WSAGetLastError() << endl;
+				cout << "Error: JSON parse error" << endl;
+				closesocket(ClientSocket);
+				continue;
 			}
-			break;
+
+			// Check JsonMassage from recvData
+			if (JsonData.HasMember("playerName") && JsonData.HasMember("point"))
+			{
+				string playerName = JsonData["playerName"].GetString();
+				int score = JsonData["point"].GetInt();
+
+				// transfer Data to MySQL
+				try
+				{
+					// Prepared Statement Create Qurry
+					PreparedStatement = Connection->prepareStatement("INSERT INTO ranking (PlayerName, Score) VALUES (?, ?)");
+					PreparedStatement->setString(1, playerName);
+					PreparedStatement->setInt(2, score);
+					PreparedStatement->executeUpdate();  // Qurry
+					cout << "Data inserted into MySQL successfully." << endl;
+				}
+				catch (sql::SQLException& e)
+				{
+					cout << "Error: " << e.what() << endl;
+				}
+
+				delete PreparedStatement;
+			}
+
+			else if (JsonData.HasMember("action"))
+			{
+				// 1. SQL 쿼리 실행 (상위 10명의 랭킹)
+				PreparedStatement = Connection->prepareStatement("SELECT PlayerName, Score FROM ranking ORDER BY Score DESC LIMIT 10");
+				ResultSet = PreparedStatement->executeQuery();
+
+				// 2. JSON 응답 준비
+				Document RankData;
+				RankData.SetObject(); //json형식으로 설정
+				Document::AllocatorType& allocator = RankData.GetAllocator();
+				Value rankingArray(kArrayType);//json배열로 설정
+
+				// 3. ResultSet에서 데이터를 읽어와서 JSON 객체에 추가
+				while (ResultSet->next())
+				{
+					// 결과셋에서 PlayerName과 Score 가져오기
+					string playerName = ResultSet->getString("PlayerName");
+					int score = ResultSet->getInt("Score");
+
+					// PlayerName과 Score 값을 JSON 객체에 추가
+					Value playerObject(kObjectType);
+					playerObject.AddMember("playerName", Value(playerName.c_str(), allocator), allocator);
+					playerObject.AddMember("score", score, allocator);
+
+					// rankingArray에 추가
+					rankingArray.PushBack(playerObject, allocator);
+				}
+
+				// 4. JSON에 status와 ranking 데이터 추가
+				RankData.AddMember("ranking", rankingArray, allocator);
+
+				// 5. JSON을 문자열로 변환
+				StringBuffer buffer;  // 문자열을 저장할 버퍼
+				Writer<StringBuffer> writer(buffer);  // StringBuffer에 JSON을 작성하는 Writer 객체
+				RankData.Accept(writer);  // JSON 객체를 문자열로 변환하여 buffer에 저장
+
+				cout << "Sending JSON data to client: " << buffer.GetString() << endl;
+
+				Length = htons(buffer.GetSize());
+
+				// 6. 결과를 클라이언트로 전송
+				int SendSize = send(ClientSocket, (char*)&Length, sizeof(Length), 0);
+				SendSize = send(ClientSocket, buffer.GetString(), buffer.GetSize(), 0);
+				//send(ClientSocket, "\n", 1, 0);
+				cout << "Send Complete" << endl;
+
+				// 7. 정리
+				delete PreparedStatement;
+				delete ResultSet;
+				allocator.Clear();
+				//allocator.Free(&RankData); 수동으로 해제하는 방식은 올바르나 rapidjson은 자동으로 이 과정이 이루어지기떄문에 현재의 줄은 불필요
+			}
 		}
-
-		// json data
-		Document JsonData; //rapidjosn
-		JsonData.Parse(Buffer); // data parse
-
-		if (JsonData.HasParseError())
-		{
-			cout << "Error: JSON parse error" << endl;
-			closesocket(ClientSocket);
-			continue;
-		}
-
-		// Check JsonMassage from recvData
-		if (JsonData.HasMember("playerName") && JsonData.HasMember("point"))
-		{
-			string playerName = JsonData["playerName"].GetString();
-			int score = JsonData["point"].GetInt();
-
-			// transfer Data to MySQL
-			try
-			{
-				// Prepared Statement Create Qurry
-				PreparedStatement = Connection->prepareStatement("INSERT INTO ranking (PlayerName, Score) VALUES (?, ?)");
-				PreparedStatement->setString(1, playerName);
-				PreparedStatement->setInt(2, score);
-				PreparedStatement->executeUpdate();  // Qurry
-				cout << "Data inserted into MySQL successfully." << endl;
-			}
-			catch (sql::SQLException& e)
-			{
-				cout << "Error: " << e.what() << endl;
-			}
-
-			delete PreparedStatement;
-		}
-
-		else if (JsonData.HasMember("action"))
-		{
-			// 1. SQL 쿼리 실행 (상위 10명의 랭킹)
-			PreparedStatement = Connection->prepareStatement("SELECT PlayerName, Score FROM ranking ORDER BY Score DESC LIMIT 10");
-			ResultSet = PreparedStatement->executeQuery();
-
-			// 2. JSON 응답 준비
-			Document RankData;
-			RankData.SetObject(); //json형식으로 설정
-			Document::AllocatorType& allocator = RankData.GetAllocator();
-			Value rankingArray(kArrayType);//json배열로 설정
-
-			// 3. ResultSet에서 데이터를 읽어와서 JSON 객체에 추가
-			while (ResultSet->next())
-			{
-				// 결과셋에서 PlayerName과 Score 가져오기
-				string playerName = ResultSet->getString("PlayerName");
-				int score = ResultSet->getInt("Score");
-
-				// PlayerName과 Score 값을 JSON 객체에 추가
-				Value playerObject(kObjectType);
-				playerObject.AddMember("playerName", Value(playerName.c_str(), allocator), allocator);
-				playerObject.AddMember("score", score, allocator);
-
-				// rankingArray에 추가
-				rankingArray.PushBack(playerObject, allocator);
-			}
-
-			// 4. JSON에 status와 ranking 데이터 추가
-			RankData.AddMember("ranking", rankingArray, allocator);
-
-			// 5. JSON을 문자열로 변환
-			StringBuffer buffer;  // 문자열을 저장할 버퍼
-			Writer<StringBuffer> writer(buffer);  // StringBuffer에 JSON을 작성하는 Writer 객체
-			RankData.Accept(writer);  // JSON 객체를 문자열로 변환하여 buffer에 저장
-
-			cout << "Sending JSON data to client: " << buffer.GetString() << endl;
-
-			// 6. 결과를 클라이언트로 전송
-			send(ClientSocket, buffer.GetString(), buffer.GetSize(), 0);
-			send(ClientSocket, "\n", 1, 0);
-			cout << "Send Complete" << endl;
-
-			// 7. 정리
-			delete PreparedStatement;
-			delete ResultSet;
-			allocator.Clear();
-			//allocator.Free(&RankData); 수동으로 해제하는 방식은 올바르나 rapidjson은 자동으로 이 과정이 이루어지기떄문에 현재의 줄은 불필요
-		}
-
 		closesocket(ClientSocket);
 	}
 
