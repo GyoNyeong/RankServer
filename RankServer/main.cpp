@@ -17,6 +17,7 @@
 #include "jdbc/cppconn/prepared_statement.h"
 #include "rapidjson/writer.h"
 #include "rapidjson/document.h"
+#include "thread"
 
 using namespace std;
 using namespace rapidjson;
