@@ -27,6 +27,8 @@ using namespace rapidjson;
 
 unsigned short Length;
 
+CRITICAL_SECTION DataCriticalSection;
+
 struct ThreadData
 {
 	SOCKET ClientSocket;
@@ -58,9 +60,9 @@ unsigned WINAPI WorkThread(void* param)
 			if (RecvByte == 0)
 			{
 				cout << "Client disconnected." << endl;
-				closesocket(ClientSocket);
-				delete ClientData;
-				return -1;
+							closesocket(ClientSocket);
+			delete ClientData;
+			return -1;
 			}
 			else
 			{
@@ -83,6 +85,7 @@ unsigned WINAPI WorkThread(void* param)
 			continue;
 		}
 
+
 		if (JsonData.HasMember("playerName") && JsonData.HasMember("point"))
 		{
 			string playerName = JsonData["playerName"].GetString();
@@ -90,10 +93,12 @@ unsigned WINAPI WorkThread(void* param)
 
 			try
 			{
+				EnterCriticalSection(&DataCriticalSection);
 				PreparedStatement = Connection->prepareStatement("INSERT INTO ranking (PlayerName, Score) VALUES (?, ?)");
 				PreparedStatement->setString(1, playerName);
 				PreparedStatement->setInt(2, score);
 				PreparedStatement->executeUpdate();
+				LeaveCriticalSection(&DataCriticalSection);
 				cout << "Data inserted into MySQL successfully." << endl;
 			}
 			catch (sql::SQLException& e)
@@ -110,8 +115,10 @@ unsigned WINAPI WorkThread(void* param)
 		else if (JsonData.HasMember("action"))
 		{
 			// 1. SQL query execution (top 10 rankings)
+			EnterCriticalSection(&DataCriticalSection);
 			PreparedStatement = Connection->prepareStatement("SELECT PlayerName, Score FROM ranking ORDER BY Score DESC LIMIT 10");
 			ResultSet = PreparedStatement->executeQuery();
+			LeaveCriticalSection(&DataCriticalSection);
 
 			// 2. Prepare JSON response
 			Document RankData;
@@ -158,6 +165,7 @@ unsigned WINAPI WorkThread(void* param)
 			delete ResultSet;
 			allocator.Clear();
 		}
+	
 	}
 		// top 10 rankings query...
 
@@ -181,6 +189,7 @@ int main()
 	//WinSoc Initiailze
 	WSADATA wsaData;
 	WSAStartup(MAKEWORD(2, 2), &wsaData);
+	InitializeCriticalSection(&DataCriticalSection);
 
 	// MySQL Initialize
 	sql::Driver* Driver = nullptr;
@@ -253,5 +262,6 @@ int main()
 	closesocket(ServerSock);
 	WSACleanup();
 	delete Connection;
+	DeleteCriticalSection(&DataCriticalSection);
 	return 0;
 }
